@@ -15,23 +15,10 @@ public class MainActivity extends Activity implements View.OnTouchListener {
 
     private Button btnAllClear;
     private Button btnClear;
-    private Button btnSign;
     private Button btnDiv;
-    private Button btnSeven;
-    private Button btnEight;
-    private Button btnNine;
     private Button btnMul;
-    private Button btnFour;
-    private Button btnFive;
-    private Button btnSix;
     private Button btnSub;
-    private Button btnOne;
-    private Button btnTwo;
-    private Button btnThree;
     private Button btnAdd;
-    private Button btnZero;
-    private Button btnPoint;
-    private Button btnEquals;
     private TextView output;
     private boolean disabledAllClear = true;
     private boolean disabledClear = true;
@@ -43,7 +30,6 @@ public class MainActivity extends Activity implements View.OnTouchListener {
     private boolean wasSecond = false;
     private double first;
     private double second;
-    private Toast toast;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,23 +44,23 @@ public class MainActivity extends Activity implements View.OnTouchListener {
     private void findAllButtonsAndListen() {
         btnAllClear = (Button) findViewById(R.id.btnAllClear);
         btnClear = (Button) findViewById(R.id.btnClear);
-        btnSign = (Button) findViewById(R.id.btnSign);
+        Button btnSign = (Button) findViewById(R.id.btnSign);
         btnDiv = (Button) findViewById(R.id.btnDiv);
-        btnSeven = (Button) findViewById(R.id.btnSeven);
-        btnEight = (Button) findViewById(R.id.btnEight);
-        btnNine = (Button) findViewById(R.id.btnNine);
+        Button btnSeven = (Button) findViewById(R.id.btnSeven);
+        Button btnEight = (Button) findViewById(R.id.btnEight);
+        Button btnNine = (Button) findViewById(R.id.btnNine);
         btnMul = (Button) findViewById(R.id.btnMul);
-        btnFour = (Button) findViewById(R.id.btnFour);
-        btnFive = (Button) findViewById(R.id.btnFive);
-        btnSix = (Button) findViewById(R.id.btnSix);
+        Button btnFour = (Button) findViewById(R.id.btnFour);
+        Button btnFive = (Button) findViewById(R.id.btnFive);
+        Button btnSix = (Button) findViewById(R.id.btnSix);
         btnSub = (Button) findViewById(R.id.btnSub);
-        btnOne = (Button) findViewById(R.id.btnOne);
-        btnTwo = (Button) findViewById(R.id.btnTwo);
-        btnThree = (Button) findViewById(R.id.btnThree);
+        Button btnOne = (Button) findViewById(R.id.btnOne);
+        Button btnTwo = (Button) findViewById(R.id.btnTwo);
+        Button btnThree = (Button) findViewById(R.id.btnThree);
         btnAdd = (Button) findViewById(R.id.btnAdd);
-        btnZero = (Button) findViewById(R.id.btnZero);
-        btnPoint = (Button) findViewById(R.id.btnPoint);
-        btnEquals = (Button) findViewById(R.id.btnEquals);
+        Button btnZero = (Button) findViewById(R.id.btnZero);
+        Button btnPoint = (Button) findViewById(R.id.btnPoint);
+        Button btnEquals = (Button) findViewById(R.id.btnEquals);
 
         btnAllClear.setOnTouchListener(this);
         btnClear.setOnTouchListener(this);
@@ -100,7 +86,7 @@ public class MainActivity extends Activity implements View.OnTouchListener {
     }
 
     private void showToast(String msg) {
-        toast = Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT);
+        Toast toast = Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT);
         toast.show();
     }
 
@@ -283,7 +269,7 @@ public class MainActivity extends Activity implements View.OnTouchListener {
                 }
 
                 first = Double.parseDouble(output.getText().toString());
-                String res = String.format("%.9f", first);
+                String res = String.valueOf(first);
                 res = res.replace(',', '.');
                 int k = res.length();
 
@@ -313,7 +299,7 @@ public class MainActivity extends Activity implements View.OnTouchListener {
             if (activatedAdd) {
                 double ans = first + second;
                 first = 0.0;
-                String res = String.format("%.9f", ans);
+                String res = String.valueOf(ans);
                 res = res.replace(',', '.');
                 int k = res.length();
 
@@ -392,6 +378,7 @@ public class MainActivity extends Activity implements View.OnTouchListener {
                     btnClear.setEnabled(false);
                     activatedDiv = false;
                     btnDiv.setPressed(false);
+                    return false;
                 }
 
                 double ans = first / second;
