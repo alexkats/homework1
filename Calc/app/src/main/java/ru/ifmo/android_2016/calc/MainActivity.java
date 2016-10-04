@@ -4,420 +4,272 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.view.ContextMenu;
+import android.view.ContextMenu.ContextMenuInfo;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.View.OnTouchListener;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class MainActivity extends Activity implements View.OnTouchListener {
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumMap;
+import java.util.Locale;
+import java.util.Map;
 
-    private Button btnAllClear;
-    private Button btnClear;
-    private Button btnDiv;
-    private Button btnMul;
-    private Button btnSub;
-    private Button btnAdd;
+import ru.ifmo.android_2016.calc.R.id;
+import ru.ifmo.android_2016.calc.R.layout;
+import ru.ifmo.android_2016.calc.R.string;
+
+public class MainActivity extends Activity implements OnTouchListener {
+
     private TextView output;
-    private boolean disabledAllClear = true;
-    private boolean disabledClear = true;
-    private boolean activatedAdd = false;
-    private boolean activatedSub = false;
-    private boolean activatedMul = false;
-    private boolean activatedDiv = false;
-    private boolean onOperation = false;
-    private boolean wasSecond = false;
+    private View btnAllClear;
+    private View btnClear;
+
+    private boolean wasSecond;
+    private Operation activeOperation = Operation.NOTHING;
+
     private double first;
     private double second;
+
+    private final Collection<Button> buttons = new ArrayList<>();
+    private final Map<Operation, Button> operationButtons = new EnumMap<>(Operation.class);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.main);
+        setContentView(layout.main);
         findAllButtonsAndListen();
-        output = (TextView) findViewById(R.id.output);
+        output = (TextView) findViewById(id.output);
         output.setText("0");
         registerForContextMenu(output);
     }
 
     private void findAllButtonsAndListen() {
-        btnAllClear = (Button) findViewById(R.id.btnAllClear);
-        btnClear = (Button) findViewById(R.id.btnClear);
-        Button btnSign = (Button) findViewById(R.id.btnSign);
-        btnDiv = (Button) findViewById(R.id.btnDiv);
-        Button btnSeven = (Button) findViewById(R.id.btnSeven);
-        Button btnEight = (Button) findViewById(R.id.btnEight);
-        Button btnNine = (Button) findViewById(R.id.btnNine);
-        btnMul = (Button) findViewById(R.id.btnMul);
-        Button btnFour = (Button) findViewById(R.id.btnFour);
-        Button btnFive = (Button) findViewById(R.id.btnFive);
-        Button btnSix = (Button) findViewById(R.id.btnSix);
-        btnSub = (Button) findViewById(R.id.btnSub);
-        Button btnOne = (Button) findViewById(R.id.btnOne);
-        Button btnTwo = (Button) findViewById(R.id.btnTwo);
-        Button btnThree = (Button) findViewById(R.id.btnThree);
-        btnAdd = (Button) findViewById(R.id.btnAdd);
-        Button btnZero = (Button) findViewById(R.id.btnZero);
-        Button btnPoint = (Button) findViewById(R.id.btnPoint);
-        Button btnEquals = (Button) findViewById(R.id.btnEquals);
+        btnAllClear = registerAndAddButtonToList(id.btnAllClear);
+        btnClear = registerAndAddButtonToList(id.btnClear);
+        operationButtons.put(Operation.DIV, registerAndAddButtonToList(id.btnDiv));
+        operationButtons.put(Operation.MUL, registerAndAddButtonToList(id.btnMul));
+        operationButtons.put(Operation.SUB, registerAndAddButtonToList(id.btnSub));
+        operationButtons.put(Operation.ADD, registerAndAddButtonToList(id.btnAdd));
 
-        btnAllClear.setOnTouchListener(this);
-        btnClear.setOnTouchListener(this);
-        btnSign.setOnTouchListener(this);
-        btnDiv.setOnTouchListener(this);
-        btnSeven.setOnTouchListener(this);
-        btnEight.setOnTouchListener(this);
-        btnNine.setOnTouchListener(this);
-        btnMul.setOnTouchListener(this);
-        btnFour.setOnTouchListener(this);
-        btnFive.setOnTouchListener(this);
-        btnSix.setOnTouchListener(this);
-        btnSub.setOnTouchListener(this);
-        btnOne.setOnTouchListener(this);
-        btnTwo.setOnTouchListener(this);
-        btnThree.setOnTouchListener(this);
-        btnAdd.setOnTouchListener(this);
-        btnZero.setOnTouchListener(this);
-        btnPoint.setOnTouchListener(this);
-        btnEquals.setOnTouchListener(this);
-        btnAllClear.setEnabled(false);
-        btnClear.setEnabled(false);
+        Iterable<Integer> buttonIdsToRegister =
+                Arrays.asList(id.btnSign, id.btnSeven, id.btnEight, id.btnNine,
+                        id.btnFour, id.btnFive, id.btnSix,
+                        id.btnOne, id.btnTwo, id.btnThree,
+                        id.btnZero, id.btnPoint, id.btnEquals);
+
+        for (Integer id : buttonIdsToRegister) {
+            registerAndAddButtonToList(id);
+        }
+
+        for (View button : buttons) {
+            button.setOnTouchListener(this);
+        }
+
+        changeClearButtonsState(false);
     }
 
-    private void showToast(String msg) {
+    private void changeClearButtonsState(boolean state) {
+        btnClear.setEnabled(state);
+        btnAllClear.setEnabled(state);
+    }
+
+    private Button registerAndAddButtonToList(int id) {
+        Button button = (Button) findViewById(id);
+        buttons.add(button);
+        return button;
+    }
+
+    private void showToast(CharSequence msg) {
         Toast toast = Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT);
         toast.show();
     }
 
+    private void deleteOneCharFromOutput() {
+        output.setText(output.getText().subSequence(0, output.getText().length() - 1));
+    }
+
+    private void disableOperationButtons() {
+        for (View button : operationButtons.values()) {
+            button.setPressed(false);
+        }
+    }
+
+    private boolean isZeroOutput() {
+        return "0".equals(output.getText().toString());
+    }
+
+    private boolean checkZeroDivision() {
+        if (Math.abs(second) < 1e-9) {
+            showToast("Division by zero");
+            resetAll();
+            return true;
+        }
+
+        return false;
+    }
+
+    private void resetAll() {
+        output.setText("0");
+        changeClearButtonsState(false);
+        wasSecond = false;
+        activeOperation = Operation.NOTHING;
+        disableOperationButtons();
+    }
+
+    private boolean clearButtonPressed() {
+        deleteOneCharFromOutput();
+
+        if (output.getText().toString().isEmpty() || "-".equals(output.getText().toString())) {
+            output.setText("0");
+            btnClear.setEnabled(false);
+            wasSecond = false;
+
+            if (activeOperation == Operation.NOTHING) {
+                btnAllClear.setEnabled(false);
+            }
+        }
+
+        return false;
+    }
+
+    private boolean allClearButtonPressed() {
+        resetAll();
+        return false;
+    }
+
+    private boolean operationButtonPressed(int buttonId) {
+        Utils.normalizeOutput(output);
+
+        if (!wasSecond) {
+            first = Double.parseDouble(output.getText().toString());
+            output.setText("0");
+            wasSecond = true;
+            btnClear.setEnabled(false);
+        }
+
+        switch (buttonId) {
+            case id.btnAdd:
+                activeOperation = Operation.ADD;
+                break;
+            case id.btnSub:
+                activeOperation = Operation.SUB;
+                break;
+            case id.btnMul:
+                activeOperation = Operation.MUL;
+                break;
+            case id.btnDiv:
+                activeOperation = Operation.DIV;
+                break;
+            default:
+                activeOperation = Operation.NOTHING;
+        }
+
+        if (activeOperation != Operation.NOTHING) {
+            operationButtons.get(activeOperation).setPressed(true);
+        }
+
+        return true;
+    }
+
+    private boolean signButtonPressed() {
+        if (isZeroOutput()) {
+            showToast("Zero has no sign");
+            return false;
+        }
+
+        if (output.getText().charAt(0) != '-') {
+            CharSequence negativeNumber = '-' + output.getText().toString();
+            output.setText(negativeNumber);
+            changeClearButtonsState(true);
+        } else {
+            output.setText(output.getText().toString().substring(1));
+        }
+
+        return false;
+    }
+
+    private boolean equalsButtonPressed() {
+        if (!wasSecond) {
+            Utils.normalizeOutput(output);
+            CharSequence result = Utils.deleteTrailingZeros(output.getText().toString());
+            output.setText(result);
+            first = Double.parseDouble(output.getText().toString());
+            return false;
+        }
+
+        second = Double.parseDouble(output.getText().toString());
+        wasSecond = false;
+        double answer;
+
+        switch (activeOperation) {
+            case ADD:
+                answer = first + second;
+                break;
+            case SUB:
+                answer = first - second;
+                break;
+            case MUL:
+                answer = first * second;
+                break;
+            case DIV:
+                if (checkZeroDivision()) {
+                    return false;
+                }
+
+                answer = first / second;
+                break;
+            default:
+                throw new IllegalStateException("State is impossible!");
+        }
+
+        CharSequence result = String.format(Locale.ENGLISH, "%.10f", answer);
+        result = Utils.deleteTrailingZeros(result);
+        output.setText(result);
+
+        if (isZeroOutput()) {
+            resetAll();
+        } else {
+            operationButtons.get(activeOperation).setPressed(false);
+            activeOperation = Operation.NOTHING;
+        }
+
+        return false;
+    }
+
     @Override
     public boolean onTouch(View v, MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+        if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
             return false;
         }
 
-        if (event.getAction() == MotionEvent.ACTION_MOVE) {
-            return false;
+        switch (v.getId()) {
+            case id.btnClear:
+                return clearButtonPressed();
+            case id.btnAllClear:
+                return allClearButtonPressed();
+            case id.btnAdd:
+            case id.btnSub:
+            case id.btnMul:
+            case id.btnDiv:
+                return operationButtonPressed(v.getId());
+            case id.btnSign:
+                return signButtonPressed();
+            case id.btnEquals:
+                return equalsButtonPressed();
         }
 
-        if (v.getId() == R.id.btnClear) {
-            output.setText(output.getText().toString().substring(0, output.getText().length() - 1));
+        CharSequence toAppend = ((TextView) v).getText().toString();
 
-            if (output.getText().toString().equals("") || output.getText().toString().equals("-")) {
-                output.setText("0");
-                disabledClear = true;
-                btnClear.setEnabled(false);
-                wasSecond = false;
+        if (isZeroOutput() && !"0".equals(toAppend)) {
+            changeClearButtonsState(true);
 
-                if (!onOperation) {
-                    disabledAllClear = true;
-                    btnAllClear.setEnabled(false);
-                    return false;
-                }
-
-                onOperation = false;
-            }
-
-            return false;
-        }
-
-        if (v.getId() == R.id.btnAllClear) {
-            output.setText("0");
-            disabledClear = true;
-            btnClear.setEnabled(false);
-            disabledAllClear = true;
-            btnAllClear.setEnabled(false);
-            wasSecond = false;
-            onOperation = false;
-            activatedAdd = false;
-            activatedSub = false;
-            activatedMul = false;
-            activatedDiv = false;
-            btnAdd.setPressed(false);
-            btnSub.setPressed(false);
-            btnMul.setPressed(false);
-            btnDiv.setPressed(false);
-            return false;
-        }
-
-        if (v.getId() == R.id.btnAdd) {
-            if (output.getText().charAt(output.getText().length() - 1) == '.') {
-                output.setText(output.getText().toString().substring(0, output.getText().length() - 1));
-            }
-
-            if (!wasSecond) {
-                first = Double.parseDouble(output.getText().toString());
-                output.setText("0");
-                wasSecond = true;
-                disabledClear = true;
-                btnClear.setEnabled(false);
-            }
-
-            onOperation = true;
-            activatedAdd = true;
-            activatedSub = false;
-            activatedMul = false;
-            activatedDiv = false;
-            btnAdd.setPressed(true);
-            btnSub.setPressed(false);
-            btnMul.setPressed(false);
-            btnDiv.setPressed(false);
-            return true;
-        }
-
-        if (v.getId() == R.id.btnSub) {
-            if (output.getText().charAt(output.getText().length() - 1) == '.') {
-                output.setText(output.getText().toString().substring(0, output.getText().length() - 1));
-            }
-
-            if (!wasSecond) {
-                first = Double.parseDouble(output.getText().toString());
-                output.setText("0");
-                wasSecond = true;
-                disabledClear = true;
-                btnClear.setEnabled(false);
-            }
-
-            onOperation = true;
-            activatedAdd = false;
-            activatedSub = true;
-            activatedMul = false;
-            activatedDiv = false;
-            btnAdd.setPressed(false);
-            btnSub.setPressed(true);
-            btnMul.setPressed(false);
-            btnDiv.setPressed(false);
-            return true;
-        }
-
-        if (v.getId() == R.id.btnMul) {
-            if (output.getText().charAt(output.getText().length() - 1) == '.') {
-                output.setText(output.getText().toString().substring(0, output.getText().length() - 1));
-            }
-
-            if (!wasSecond) {
-                first = Double.parseDouble(output.getText().toString());
-                output.setText("0");
-                wasSecond = true;
-                disabledClear = true;
-                btnClear.setEnabled(false);
-            }
-
-            onOperation = true;
-            activatedAdd = false;
-            activatedSub = false;
-            activatedMul = true;
-            activatedDiv = false;
-            btnAdd.setPressed(false);
-            btnSub.setPressed(false);
-            btnMul.setPressed(true);
-            btnDiv.setPressed(false);
-            return true;
-        }
-
-        if (v.getId() == R.id.btnDiv) {
-            if (output.getText().charAt(output.getText().length() - 1) == '.') {
-                output.setText(output.getText().toString().substring(0, output.getText().length() - 1));
-            }
-
-            if (!wasSecond) {
-                first = Double.parseDouble(output.getText().toString());
-                output.setText("0");
-                wasSecond = true;
-                disabledClear = true;
-                btnClear.setEnabled(false);
-            }
-
-            onOperation = true;
-            activatedAdd = false;
-            activatedSub = false;
-            activatedMul = false;
-            activatedDiv = true;
-            btnAdd.setPressed(false);
-            btnSub.setPressed(false);
-            btnMul.setPressed(false);
-            btnDiv.setPressed(true);
-            return true;
-        }
-
-        if (v.getId() == R.id.btnSign) {
-            if (output.getText().charAt(0) != '-') {
-                String sign = "-" + output.getText().toString();
-                output.setText(sign);
-                disabledAllClear = false;
-                btnAllClear.setEnabled(true);
-                disabledClear = false;
-                btnClear.setEnabled(true);
-            } else {
-                output.setText(output.getText().toString().substring(1));
-
-                if (output.getText().toString().isEmpty()) {
-                    disabledAllClear = true;
-                    btnAllClear.setEnabled(false);
-                    disabledClear = true;
-                    btnClear.setEnabled(false);
-                }
-            }
-
-            return false;
-        }
-
-        if (v.getId() == R.id.btnEquals) {
-            if (!wasSecond) {
-                if (output.getText().charAt(output.getText().length() - 1) == '.') {
-                    output.setText(output.getText().toString().substring(0, output.getText().length() - 1));
-                }
-
-                first = Double.parseDouble(output.getText().toString());
-                String res = String.valueOf(first);
-                res = res.replace(',', '.');
-                int k = res.length();
-
-                for (int i = k - 1; i > -1; i--) {
-                    if (res.charAt(i) == '0') {
-                        k--;
-                        continue;
-                    }
-
-                    break;
-                }
-
-                if (res.charAt(k - 1) == '.') {
-                    k--;
-                }
-
-                res = res.substring(0, k);
-                output.setText(res);
-
-                return false;
-            }
-
-            second = Double.parseDouble(output.getText().toString());
-            wasSecond = false;
-            onOperation = false;
-
-            if (activatedAdd) {
-                double ans = first + second;
-                first = 0.0;
-                String res = String.valueOf(ans);
-                res = res.replace(',', '.');
-                int k = res.length();
-
-                for (int i = k - 1; i > -1; i--) {
-                    if (res.charAt(i) == '0') {
-                        k--;
-                        continue;
-                    }
-
-                    break;
-                }
-
-                if (res.charAt(k - 1) == '.') {
-                    k--;
-                }
-
-                res = res.substring(0, k);
-                output.setText(res);
-                activatedAdd = false;
-                btnAdd.setPressed(false);
-            } else if (activatedSub) {
-                double ans = first - second;
-                first = 0.0;
-                String res = String.valueOf(ans);
-                res = res.replace(',', '.');
-                int k = res.length();
-
-                for (int i = k - 1; i > -1; i--) {
-                    if (res.charAt(i) == '0') {
-                        k--;
-                        continue;
-                    }
-
-                    break;
-                }
-
-                if (res.charAt(k - 1) == '.') {
-                    k--;
-                }
-
-                res = res.substring(0, k);
-                output.setText(res);
-                activatedSub = false;
-                btnSub.setPressed(false);
-            } else if (activatedMul) {
-                double ans = first * second;
-                first = 0.0;
-                String res = String.valueOf(ans);
-                res = res.replace(',', '.');
-                int k = res.length();
-
-                for (int i = k - 1; i > -1; i--) {
-                    if (res.charAt(i) == '0') {
-                        k--;
-                        continue;
-                    }
-
-                    break;
-                }
-
-                if (res.charAt(k - 1) == '.') {
-                    k--;
-                }
-
-                res = res.substring(0, k);
-                output.setText(res);
-                activatedMul = false;
-                btnMul.setPressed(false);
-            } else {
-                if (Math.abs(second) < 1e-9) {
-                    showToast("Division by zero");
-                    output.setText("0");
-                    disabledAllClear = true;
-                    btnAllClear.setEnabled(false);
-                    disabledClear = true;
-                    btnClear.setEnabled(false);
-                    activatedDiv = false;
-                    btnDiv.setPressed(false);
-                    return false;
-                }
-
-                double ans = first / second;
-                first = 0.0;
-                String res = String.valueOf(ans);
-                res = res.replace(',', '.');
-                int k = res.length();
-
-                for (int i = k - 1; i > -1; i--) {
-                    if (res.charAt(i) == '0') {
-                        k--;
-                        continue;
-                    }
-
-                    break;
-                }
-
-                if (res.charAt(k - 1) == '.') {
-                    k--;
-                }
-
-                res = res.substring(0, k);
-                output.setText(res);
-                activatedDiv = false;
-                btnDiv.setPressed(false);
-            }
-
-            return false;
-        }
-
-        String toAppend = ((Button) v).getText().toString();
-
-        if (output.getText().toString().equals("0") && !toAppend.equals("0")) {
-            disabledAllClear = false;
-            btnAllClear.setEnabled(true);
-            disabledClear = false;
-            btnClear.setEnabled(true);
-
-            if (toAppend.equals(".")) {
+            if (".".equals(toAppend)) {
                 output.append(toAppend);
             } else {
                 output.setText(toAppend);
@@ -426,7 +278,7 @@ public class MainActivity extends Activity implements View.OnTouchListener {
             return false;
         }
 
-        if (!output.getText().toString().equals("0") && (!toAppend.equals(".") || !output.getText().toString().contains("."))) {
+        if (!isZeroOutput() && (!".".equals(toAppend) || !output.getText().toString().contains("."))) {
             output.append(toAppend);
         }
 
@@ -435,68 +287,40 @@ public class MainActivity extends Activity implements View.OnTouchListener {
 
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
-        outState.putString("Output", output.getText().toString());
-        outState.putBoolean("Disabled clear", disabledClear);
-        outState.putBoolean("Disabled all clear", disabledAllClear);
-        outState.putBoolean("Activated add", activatedAdd);
-        outState.putBoolean("Activated sub", activatedSub);
-        outState.putBoolean("Activated mul", activatedMul);
-        outState.putBoolean("Activated div", activatedDiv);
-        outState.putDouble("First", first);
-        outState.putDouble("Second", second);
-        outState.putBoolean("On operation", onOperation);
-        outState.putBoolean("Was second", wasSecond);
+        outState.putString(InstanceStateMessages.OUTPUT.name(), output.getText().toString());
+        outState.putBoolean(InstanceStateMessages.BTN_CLEAR.name(), btnClear.isEnabled());
+        outState.putBoolean(InstanceStateMessages.BTN_ALL_CLEAR.name(), btnAllClear.isEnabled());
+        outState.putSerializable(InstanceStateMessages.ACTIVE_OPERATION.name(), activeOperation);
+        outState.putDouble(InstanceStateMessages.FIRST.name(), first);
+        outState.putDouble(InstanceStateMessages.SECOND.name(), second);
+        outState.putBoolean(InstanceStateMessages.WAS_SECOND.name(), wasSecond);
         super.onSaveInstanceState(outState);
     }
 
     @Override
     protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
-        output.setText(savedInstanceState.getString("Output"));
-        disabledClear = savedInstanceState.getBoolean("Disabled clear");
-        disabledAllClear = savedInstanceState.getBoolean("Disabled all clear");
-        activatedAdd = savedInstanceState.getBoolean("Activated add");
-        activatedSub = savedInstanceState.getBoolean("Activated sub");
-        activatedMul = savedInstanceState.getBoolean("Activated mul");
-        activatedDiv = savedInstanceState.getBoolean("Activated div");
-        first = savedInstanceState.getDouble("First");
-        second = savedInstanceState.getDouble("Second");
-        onOperation = savedInstanceState.getBoolean("On operation");
-        wasSecond = savedInstanceState.getBoolean("Was second");
+        output.setText(savedInstanceState.getString(InstanceStateMessages.OUTPUT.name()));
+        btnClear.setEnabled(savedInstanceState.getBoolean(InstanceStateMessages.BTN_CLEAR.name()));
+        btnAllClear.setEnabled(savedInstanceState.getBoolean(InstanceStateMessages.BTN_ALL_CLEAR.name()));
+        activeOperation = (Operation) savedInstanceState.getSerializable(InstanceStateMessages.ACTIVE_OPERATION.name());
+        first = savedInstanceState.getDouble(InstanceStateMessages.FIRST.name());
+        second = savedInstanceState.getDouble(InstanceStateMessages.SECOND.name());
+        wasSecond = savedInstanceState.getBoolean(InstanceStateMessages.WAS_SECOND.name());
 
-        if (!disabledClear) {
-            btnClear.setEnabled(true);
-        }
-
-        if (!disabledAllClear) {
-            btnAllClear.setEnabled(true);
-        }
-
-        if (activatedAdd) {
-            btnAdd.setPressed(true);
-        }
-
-        if (activatedSub) {
-            btnSub.setPressed(true);
-        }
-
-        if (activatedMul) {
-            btnMul.setPressed(true);
-        }
-
-        if (activatedDiv) {
-            btnDiv.setPressed(true);
+        if (activeOperation != Operation.NOTHING) {
+            operationButtons.get(activeOperation).setEnabled(true);
         }
 
         super.onRestoreInstanceState(savedInstanceState);
     }
 
     @Override
-    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
-        if (v.getId() == R.id.output) {
-            menu.add(0, 0, 0, R.string.clear_all);
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
+        if (v.getId() == id.output) {
+            menu.add(0, 0, 0, string.clear_all);
         }
 
-        if (output.getText().toString().equals("0") && !onOperation) {
+        if (isZeroOutput() && activeOperation == Operation.NOTHING) {
             menu.setGroupVisible(0, false);
         } else {
             menu.setGroupVisible(0, true);
@@ -508,14 +332,19 @@ public class MainActivity extends Activity implements View.OnTouchListener {
     @Override
     public boolean onContextItemSelected(MenuItem item) {
         if (item.getItemId() == 0) {
-            output.setText("0");
-            onOperation = false;
-            disabledClear = true;
-            btnClear.setEnabled(false);
-            disabledAllClear = true;
-            btnAllClear.setEnabled(false);
+            resetAll();
         }
 
         return super.onContextItemSelected(item);
+    }
+
+    private enum InstanceStateMessages {
+        OUTPUT,
+        BTN_CLEAR,
+        BTN_ALL_CLEAR,
+        ACTIVE_OPERATION,
+        FIRST,
+        SECOND,
+        WAS_SECOND
     }
 }
